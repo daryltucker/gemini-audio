@@ -52,10 +52,11 @@ jobs:
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu \
-            libpulse-dev:arm64
+            libpulse-dev:arm64 \
+            libssl-dev:arm64
         else
           sudo apt-get update
-          sudo apt-get install -y libpulse-dev
+          sudo apt-get install -y libpulse-dev libssl-dev
         fi
 
     - name: Build
