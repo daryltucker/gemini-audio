@@ -706,15 +706,17 @@ impl GeminiClient {
                 let mut all_audio: Vec<u8> = Vec::new();
                 for part in &model_turn.parts {
                     if let Some(inline_data) = &part.inline_data {
-                        let chunk = general_purpose::STANDARD
+                        match general_purpose::STANDARD
                             .decode(&inline_data.data)
-                            .map_err(|e| {
-                                GeminiAudioError::Processing(format!(
-                                    "Failed to decode audio data: {}",
-                                    e
-                                ))
-                            })?;
-                        all_audio.extend(chunk);
+                            .or_else(|_| general_purpose::STANDARD_NO_PAD.decode(&inline_data.data))
+                            .or_else(|_| general_purpose::URL_SAFE.decode(&inline_data.data))
+                            .or_else(|_| general_purpose::URL_SAFE_NO_PAD.decode(&inline_data.data))
+                        {
+                            Ok(chunk) => all_audio.extend(chunk),
+                            Err(e) => {
+                                tracing::warn!("Failed to decode base64 audio data: {}", e);
+                            }
+                        }
                     }
                 }
                 if !all_audio.is_empty() {

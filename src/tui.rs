@@ -292,57 +292,53 @@ pub async fn run_tui(prompt: String, is_one_shot: bool) -> Result<()> {
 
 #[derive(Default)]
 struct SttTracker {
-    history: String,
-    active: String,
+    text: String,
 }
 
 impl SttTracker {
     fn new() -> Self {
-        Self { history: String::new(), active: String::new() }
+        Self { text: String::new() }
     }
     
     fn update(&mut self, new_text: &str) -> String {
-        if new_text.is_empty() { return self.full_text(); }
+        if new_text.is_empty() { return self.text.clone(); }
         
-        if self.active.is_empty() {
-            self.active = new_text.to_string();
-            return self.full_text();
+        let a = self.text.trim_end();
+        let b = new_text.trim_start();
+        
+        if a.is_empty() {
+            self.text = b.to_string();
+            return self.text.clone();
         }
         
-        let active_first_word = self.active.split_whitespace().next().unwrap_or("").to_lowercase();
-        let new_first_word = new_text.split_whitespace().next().unwrap_or("").to_lowercase();
+        let mut best_overlap = 0;
+        let max_len = std::cmp::min(a.len(), b.len());
         
-        let is_same_burst = 
-            (!active_first_word.is_empty() && new_first_word.starts_with(&active_first_word)) ||
-            (!new_first_word.is_empty() && active_first_word.starts_with(&new_first_word));
-            
-        if is_same_burst {
-            self.active = new_text.to_string();
-        } else {
-            if !self.history.is_empty() && !self.history.ends_with(' ') && !self.active.starts_with(' ') {
-                self.history.push(' ');
+        for i in (1..=max_len).rev() {
+            if b.is_char_boundary(i) {
+                if a.ends_with(&b[..i]) {
+                    best_overlap = i;
+                    break;
+                }
             }
-            self.history.push_str(&self.active);
-            self.active = new_text.to_string();
         }
         
-        self.full_text()
+        if best_overlap > 0 {
+            self.text = format!("{}{}", a, &b[best_overlap..]);
+        } else {
+            let space = if a.ends_with('-') { "" } else { " " };
+            self.text = format!("{}{}{}", a, space, b);
+        }
+        
+        self.text.clone()
     }
     
     fn full_text(&self) -> String {
-        if self.history.is_empty() {
-            self.active.clone()
-        } else if self.active.is_empty() {
-            self.history.clone()
-        } else {
-            let space = if self.history.ends_with(' ') || self.active.starts_with(' ') { "" } else { " " };
-            format!("{}{}{}", self.history, space, self.active)
-        }
+        self.text.clone()
     }
     
     fn clear(&mut self) {
-        self.history.clear();
-        self.active.clear();
+        self.text.clear();
     }
 }
 
@@ -418,10 +414,9 @@ async fn run_app(
                                 }
                                 app.last_action_time = now;
 
-                                // Dismiss error and return to Idle
+                                // Dismiss error and return to Idle, dropping through to attempt connecting
                                 if matches!(app.state, AppState::Error(_)) {
                                     app.state = AppState::Idle;
-                                    continue;
                                 }
 
                                 match app.state {
