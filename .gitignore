@@ -6,7 +6,7 @@ Cargo.lock
 .env
 
 # Database
-data/
+/data/
 *.db
 *.db-journal
 
@@ -46,7 +46,7 @@ docs/internal/
 tests/out/
 
 # Local dev prompts (user prompts live in ~/.config/gemini-audio/prompts/)
-prompts/
+/prompts/
 
 # Generated output and scratch recordings
 tests/*.wav
