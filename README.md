@@ -185,18 +185,73 @@ When the mic indicator shows **Off**, zero bytes of audio are sent to Google. Th
 
 ## Building from Source
 
+### Desktop (Linux)
+
 ```bash
 git clone https://github.com/daryltucker/gemini-audio
 cd gemini-audio
 sudo apt install libpulse-dev
-cargo build --release
-cargo test
+cargo build --release -p gemini-audio
+cargo test --workspace
 ```
 
 ```bash
 # Run with your key
-GEMINI_API_KEY=your_key cargo run --release
+GEMINI_API_KEY=your_key cargo run --release -p gemini-audio
 ```
+
+### Android
+
+> Requires: Rust nightly/stable, Android NDK 27+, JDK 17+
+
+**One-time setup:**
+
+```bash
+# 1. Rust Android target + cargo-ndk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
+
+# 2. Android SDK + NDK (if not already installed)
+mkdir -p ~/src/android-sdk-linux/cmdline-tools
+cd /tmp
+wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+unzip commandlinetools-linux-11076708_latest.zip
+mv cmdline-tools ~/src/android-sdk-linux/cmdline-tools/latest
+
+~/src/android-sdk-linux/cmdline-tools/latest/bin/sdkmanager \
+  --sdk_root=$HOME/src/android-sdk-linux \
+  "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0"
+
+# 3. Environment variables (add to ~/.bashrc or ~/.profile)
+export ANDROID_HOME=$HOME/src/android-sdk-linux
+export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018
+```
+
+**Build & install:**
+
+```bash
+make android-build     # Cross-compile Rust core + build APK
+make android-install   # Build + adb install to connected device
+```
+
+**Setting up your API key:**
+
+1. Open the app on your phone
+2. Go to **Settings** (gear icon)
+3. Tap the **API Key** field and paste your key
+4. That's it! The key is stored securely on your device
+
+You can get a free API key from [Google AI Studio](https://aistudio.google.com/).
+
+**Quick transfer via QR code:**
+
+On your host machine (where `GEMINI_API_KEY` is set):
+
+```bash
+qrencode -t UTF8 "$GEMINI_API_KEY"
+```
+
+Scan the QR code with your phone, then paste the copied value into the API Key field.
 
 ---
 

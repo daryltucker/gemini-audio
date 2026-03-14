@@ -1,10 +1,11 @@
 // Terminal User Interface (TUI) for Gemini Audio
 // Built using Ratatui and Crossterm
 
-use crate::error::{GeminiAudioError, Result};
-use crate::client::GeminiClient;
-use crate::audio;
-use crate::config;
+use gemini_audio_core::error::{GeminiAudioError, Result};
+use gemini_audio_core::client::GeminiClient;
+use gemini_audio_core::audio;
+use gemini_audio_core::config;
+use crate::platform_audio;
 use crossterm::{
     event::{
         DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind,
@@ -160,7 +161,7 @@ pub struct App {
     /// Current state machine state
     pub state: AppState,
     /// Active mic recorder (Some while Recording)
-    pub record_process: Option<crate::audio::Recorder>,
+    pub record_process: Option<platform_audio::Recorder>,
     /// Debounce timestamp
     pub last_action_time: chrono::DateTime<Utc>,
     /// When Some, the persistent session task is running. Voice is locked while this is Some.
@@ -188,7 +189,7 @@ pub struct App {
 impl App {
     pub fn new(prompt: String, is_one_shot: bool) -> Self {
         let default_voice = std::env::var("GEMINI_AUDIO_VOICE").unwrap_or_else(|_| "Fenrir".to_string());
-        let voice_idx = crate::config::VOICES
+        let voice_idx = gemini_audio_core::config::VOICES
             .iter()
             .position(|&v| v.eq_ignore_ascii_case(&default_voice))
             .unwrap_or(0);
@@ -220,17 +221,17 @@ impl App {
     }
 
     pub fn voice(&self) -> &'static str {
-        crate::config::VOICES[self.voice_idx]
+        gemini_audio_core::config::VOICES[self.voice_idx]
     }
 
     pub fn next_voice(&mut self) {
-        self.voice_idx = (self.voice_idx + 1) % crate::config::VOICES.len();
+        self.voice_idx = (self.voice_idx + 1) % gemini_audio_core::config::VOICES.len();
     }
 
     pub fn prev_voice(&mut self) {
         self.voice_idx = self.voice_idx
             .checked_sub(1)
-            .unwrap_or(crate::config::VOICES.len() - 1);
+            .unwrap_or(gemini_audio_core::config::VOICES.len() - 1);
     }
 
     /// True when voice selection is available (no active session)
@@ -452,7 +453,7 @@ async fn run_app(
                                         let _ = session_tx.send(TaskControl::BeginUtterance);
 
                                         let stx_for_recorder = session_tx.clone();
-                                        match audio::start_recording_streaming(move |chunk| {
+                                        match platform_audio::start_recording_streaming(move |chunk| {
                                             let _ = stx_for_recorder.send(TaskControl::AudioChunk(chunk));
                                         }) {
                                             Ok(recorder) => {
@@ -502,7 +503,7 @@ async fn run_app(
                                         }
 
                                         let stx_for_recorder = app.session_tx.clone();
-                                        match audio::start_recording_streaming(move |chunk| {
+                                        match platform_audio::start_recording_streaming(move |chunk| {
                                             if let Some(ref stx) = stx_for_recorder {
                                                 let _ = stx.send(TaskControl::AudioChunk(chunk));
                                             }
@@ -741,7 +742,7 @@ async fn run_persistent_session(
     is_one_shot: bool,
     conversation_id: u64,
 ) {
-    use crate::capabilities::{
+    use gemini_audio_core::capabilities::{
         OutputTextMode, resolve_modalities, write_cache_entry,
         is_modality_error, is_modality_ws_error, modality_error_reason, current_cache_coords,
     };
@@ -1183,7 +1184,7 @@ async fn run_persistent_session(
                                                 let _ = tx.send(AppUpdate::PlaybackStarted(stop_flag.clone()));
                                                 let tx2 = tx.clone();
                                                 std::thread::spawn(move || {
-                                                    if let Err(e) = audio::stream_pcm_pulseaudio(
+                                                    if let Err(e) = platform_audio::stream_pcm_pulseaudio(
                                                         arx,
                                                         config::OUTPUT_SAMPLE_RATE,
                                                         &stop_flag,
@@ -1722,7 +1723,7 @@ fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(legend, footer_chunks[1]);
 
     let voice_color = if app.voice_configurable() { Color::Cyan } else { Color::DarkGray };
-    let voice_label = format!(" {} ({}/{}) ", app.voice(), app.voice_idx + 1, crate::config::VOICES.len());
+    let voice_label = format!(" {} ({}/{}) ", app.voice(), app.voice_idx + 1, gemini_audio_core::config::VOICES.len());
     let voice_widget = Paragraph::new(voice_label)
         .style(Style::default().fg(voice_color))
         .block(Block::default().borders(Borders::ALL).title(" Voice "));

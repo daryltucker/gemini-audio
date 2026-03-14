@@ -1,0 +1,46 @@
+[package]
+name = "gemini-audio-core"
+version = "0.1.0"
+edition = "2021"
+description = "Portable core library for Gemini 2.5 Flash Native Audio"
+license = "MIT"
+repository = "https://github.com/daryltucker/gemini-audio"
+keywords = ["gemini", "audio", "voice", "ai"]
+categories = ["multimedia::audio"]
+
+[lib]
+name = "gemini_audio_core"
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+tokio-tungstenite = { version = "0.22", features = ["rustls-tls-webpki-roots"] }
+tokio = { version = "1.0", features = ["full"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+hound = "3.5"
+base64 = "0.21"
+anyhow = "1.0"
+directories-next = "2.0"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "json", "env-filter"] }
+tracing-appender = "0.2"
+futures-util = "0.3"
+tokio-util = { version = "0.7", features = ["codec"] }
+bytes = "1.0"
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
+symphonia = { version = "0.5", features = ["all"] }
+rubato = "0.14"
+regex = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4"] }
+dotenv = "0.15"
+async-trait = "0.1"
+thiserror = "1.0"
+uniffi = { version = "0.28", features = ["cli"] }
+
+[build-dependencies]
+uniffi = { version = "0.28", features = ["build"] }
+
+[dev-dependencies]
+tempfile = "3.0"

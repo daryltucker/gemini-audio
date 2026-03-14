@@ -7,8 +7,8 @@
 // On first run, "default" is created in the user config dir if it doesn't exist.
 
 use crate::error::{GeminiAudioError, Result};
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 const DEFAULT_PROMPT_CONTENT: &str = "\
 You are a helpful voice assistant. Respond conversationally and concisely. \
@@ -29,12 +29,17 @@ impl PromptManager {
     /// `user_dir`    — `~/.config/gemini-audio/prompts/`
     /// `bundled_dir` — `./prompts/` (cwd-relative)
     pub fn new(user_dir: PathBuf, bundled_dir: PathBuf) -> Result<Self> {
-        fs::create_dir_all(&user_dir)
-            .map_err(|e| GeminiAudioError::Configuration(
-                format!("Failed to create user prompts directory: {}", e)
-            ))?;
+        fs::create_dir_all(&user_dir).map_err(|e| {
+            GeminiAudioError::Configuration(format!(
+                "Failed to create user prompts directory: {}",
+                e
+            ))
+        })?;
 
-        Ok(Self { user_dir, bundled_dir })
+        Ok(Self {
+            user_dir,
+            bundled_dir,
+        })
     }
 
     /// Ensure `default.md` exists in the user config dir.
@@ -42,54 +47,51 @@ impl PromptManager {
     pub fn ensure_default(&self) -> Result<()> {
         let default_file = self.user_dir.join("default.md");
         if !default_file.exists() {
-            fs::write(&default_file, DEFAULT_PROMPT_CONTENT)
-                .map_err(|e| GeminiAudioError::FileIO(
-                    format!("Failed to create default prompt: {}", e)
-                ))?;
+            fs::write(&default_file, DEFAULT_PROMPT_CONTENT).map_err(|e| {
+                GeminiAudioError::FileIO(format!("Failed to create default prompt: {}", e))
+            })?;
         }
         Ok(())
     }
 
     /// Load a prompt by ID.
     ///
-    /// Searches user dir first, then bundled dir.
+    /// Searches user dir first, then bundled dir (user prompts take precedence).
     pub fn load_prompt(&self, prompt_id: &str) -> Result<String> {
         // Reject any path separators — prompt IDs are plain names only.
         if prompt_id.contains('/') || prompt_id.contains('\\') || prompt_id.contains("..") {
-            return Err(GeminiAudioError::InvalidInput(
-                format!("Invalid prompt ID '{}': must be a plain name with no path components", prompt_id)
-            ));
+            return Err(GeminiAudioError::InvalidInput(format!(
+                "Invalid prompt ID '{}': must be a plain name with no path components",
+                prompt_id
+            )));
         }
 
         let filename = format!("{}.md", prompt_id);
 
-        // Local ./prompts/ takes precedence — lets a project directory override user defaults.
-        let bundled_path = self.bundled_dir.join(&filename);
-        if bundled_path.exists() {
-            let content = fs::read_to_string(&bundled_path)
-                .map_err(|e| GeminiAudioError::FileIO(
-                    format!("Failed to read prompt '{}': {}", prompt_id, e)
-                ))?;
-            return Ok(content.trim().to_string());
-        }
-
-        // Fall back to user config dir (~/.config/gemini-audio/prompts/).
+        // Check user prompts first (takes precedence on Android for user-created prompts)
         let user_path = self.user_dir.join(&filename);
         if user_path.exists() {
-            let content = fs::read_to_string(&user_path)
-                .map_err(|e| GeminiAudioError::FileIO(
-                    format!("Failed to read prompt '{}': {}", prompt_id, e)
-                ))?;
+            let content = fs::read_to_string(&user_path).map_err(|e| {
+                GeminiAudioError::FileIO(format!("Failed to read prompt '{}': {}", prompt_id, e))
+            })?;
             return Ok(content.trim().to_string());
         }
 
-        Err(GeminiAudioError::InvalidInput(
-            format!("Prompt '{}' not found (checked {} and {})",
-                prompt_id,
-                bundled_path.display(),
-                user_path.display(),
-            )
-        ))
+        // Fall back to bundled prompts (from app assets)
+        let bundled_path = self.bundled_dir.join(&filename);
+        if bundled_path.exists() {
+            let content = fs::read_to_string(&bundled_path).map_err(|e| {
+                GeminiAudioError::FileIO(format!("Failed to read prompt '{}': {}", prompt_id, e))
+            })?;
+            return Ok(content.trim().to_string());
+        }
+
+        Err(GeminiAudioError::InvalidInput(format!(
+            "Prompt '{}' not found (checked {} and {})",
+            prompt_id,
+            user_path.display(),
+            bundled_path.display(),
+        )))
     }
 
     /// List all available prompt IDs (user dir + bundled, deduplicated, sorted).
@@ -101,10 +103,9 @@ impl PromptManager {
             if !dir.exists() {
                 continue;
             }
-            let entries = fs::read_dir(dir)
-                .map_err(|e| GeminiAudioError::FileIO(
-                    format!("Failed to read prompts directory: {}", e)
-                ))?;
+            let entries = fs::read_dir(dir).map_err(|e| {
+                GeminiAudioError::FileIO(format!("Failed to read prompts directory: {}", e))
+            })?;
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().map(|e| e == "md").unwrap_or(false) {
@@ -133,7 +134,8 @@ mod tests {
         let mgr = PromptManager::new(
             user_tmp.path().to_path_buf(),
             bundled_tmp.path().to_path_buf(),
-        ).unwrap();
+        )
+        .unwrap();
         (user_tmp, bundled_tmp, mgr)
     }
 

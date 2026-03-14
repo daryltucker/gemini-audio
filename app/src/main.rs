@@ -2,9 +2,12 @@
 // A Rust client for Gemini 2.5 Flash Native Audio
 
 use clap::Parser;
-use gemini_audio::*;
+use gemini_audio_core::*;
 use std::path::PathBuf;
 use std::env;
+
+mod tui;
+mod platform_audio;
 
 /// Gemini Audio - AI-powered audio processing with Gemini 2.5 Flash Native Audio
 #[derive(Parser, Debug)]
@@ -370,7 +373,7 @@ async fn process_single_file(args: &Args, data_dir: &PathBuf) -> Result<()> {
         // Play audio if requested
         if !args.no_audio_playback {
             info!("Playing output audio");
-            audio::play_pcm_pulseaudio(&all_output_audio, config::OUTPUT_SAMPLE_RATE)?;
+            platform_audio::play_pcm_pulseaudio(&all_output_audio, config::OUTPUT_SAMPLE_RATE)?;
         }
     } else {
         error!("No audio data in response");

@@ -1,0 +1,31 @@
+[package]
+name = "gemini-audio"
+version = "0.1.0"
+edition = "2021"
+description = "Real-time voice conversation with Gemini 2.5 Flash Native Audio"
+license = "MIT"
+repository = "https://github.com/daryltucker/gemini-audio"
+keywords = ["gemini", "audio", "voice", "ai", "tui"]
+categories = ["multimedia::audio", "command-line-utilities"]
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }.tar.gz"
+pkg-fmt = "tgz"
+bin-dir = "{ bin }{ binary-ext }"
+
+[dependencies]
+gemini-audio-core = { path = "../core" }
+tokio = { version = "1.0", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }
+hound = "3.5"
+ratatui = "0.30.0"
+crossterm = { version = "0.29.0", features = ["event-stream"] }
+arboard = "3"
+libpulse-binding = "2.30.1"
+libpulse-simple-binding = "2.29.0"
+chrono = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+tracing = "0.1"
+serde_json = "1.0"
+directories-next = "2.0"
+dotenv = "0.15"
