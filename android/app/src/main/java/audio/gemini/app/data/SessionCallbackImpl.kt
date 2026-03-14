@@ -67,7 +67,8 @@ class SessionCallbackImpl(
     private val thinkingFlow: MutableStateFlow<String>,
     private val errorFlow: MutableStateFlow<String?>,
     private val onAudioChunk: (ByteArray) -> Unit,
-    private val onSessionEnd: () -> Unit
+    private val onSessionEnd: () -> Unit,
+    private val onError: (String) -> Unit = {},
 ) : SessionCallback {
     private val userTracker = TranscriptTracker()
     private val assistantTracker = TranscriptTracker()
@@ -100,6 +101,7 @@ class SessionCallbackImpl(
     
     override fun onError(message: String) {
         errorFlow.value = message
+        onError.invoke(message)
     }
 
     override fun onSessionEnd() {

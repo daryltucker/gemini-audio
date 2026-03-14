@@ -145,17 +145,18 @@ class ActiveConversationViewModel(
             
             // Use selected prompt and voice (passed from NewConversation), not defaults from settings
             // Load the actual prompt CONTENT (not just name)
+            val userDir = File(context.filesDir, "prompts").absolutePath
+            val bundledDir = File(context.cacheDir, "bundled_prompts").absolutePath
             val promptContent = try {
-                // User prompts are stored in filesDir/prompts/
-                val userDir = File(context.filesDir, "prompts").absolutePath
-                // Bundled prompts are in cacheDir/bundled_prompts/
-                val bundledDir = File(context.cacheDir, "bundled_prompts").absolutePath
-                loadPrompt(userDir, bundledDir, selectedPrompt)
+                loadPrompt(userDir, bundledDir, selectedPrompt).ifEmpty {
+                    // Prompt was deleted — fall back to bundled default
+                    loadPrompt(userDir, bundledDir, "default")
+                }
             } catch (e: Exception) {
                 android.util.Log.e("ActiveConvVM", "Failed to load prompt: ${e.message}")
                 ""
             }
-            val prompt = if (promptContent.isNotEmpty()) promptContent else selectedPrompt
+            val prompt = promptContent
             val voice = selectedVoice
             
             if (session == null) {
@@ -166,19 +167,23 @@ class ActiveConversationViewModel(
                     thinkingFlow = _thinking,
                     errorFlow = _error,
                     onAudioChunk = { chunk ->
-                        // Play audio chunk
                         player?.write(chunk)
                     },
                     onSessionEnd = {
-                        // Gemini finished the turn - save it now
                         val userText = _userTranscript.value
                         val assistantText = _assistantTranscript.value
                         if (userText.isNotEmpty() || assistantText.isNotEmpty()) {
                             saveTurnSync(userText, assistantText)
-                            // DON'T clear transcripts - they're now in saved turns AND still visible in live area
                         }
                         _isProcessing.value = false
-                        // Transcripts stay visible until user starts next turn
+                    },
+                    onError = {
+                        // Connection broke — stop recording, discard session so next press reconnects
+                        recorder?.stop()
+                        recorder = null
+                        session = null
+                        _isListening.value = false
+                        _isProcessing.value = false
                     }
                 )
                 
@@ -231,36 +236,30 @@ class ActiveConversationViewModel(
      * - Start a new turn to record user's response
      */
     fun interruptAndStartListening() {
-        // Stop playback immediately
-        player?.stop()
-        
-        // Save Gemini's response before interrupting
+        // Cut audio instantly — non-blocking, doesn't stall the UI thread
+        player?.stopImmediate()
+        player = try {
+            OboeAudioPlayback().apply { start() }
+        } catch (e: Exception) {
+            android.util.Log.e("ActiveConvVM", "Failed to restart player: ${e.message}")
+            null
+        }
+
+        // Save Gemini's partial response
         val userText = _userTranscript.value
         val assistantText = _assistantTranscript.value
         if (userText.isNotEmpty() || assistantText.isNotEmpty()) {
             saveTurnSync(userText, assistantText)
         }
-        
+
         // Clear transcripts for new turn
         _userTranscript.value = ""
         _assistantTranscript.value = ""
         _thinking.value = ""
         _isProcessing.value = false
-        
-        // Restart player for next Gemini response
-        restartPlayer()
-        
+
         // Start recording immediately
         startListening()
-    }
-    
-    private fun restartPlayer() {
-        try {
-            player?.stop()
-            player = OboeAudioPlayback().apply { start() }
-        } catch (e: Exception) {
-            android.util.Log.e("ActiveConvVM", "Failed to restart player: ${e.message}")
-        }
     }
     
     // Synchronous version for callback context

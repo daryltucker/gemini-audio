@@ -50,11 +50,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         
-        // Load available prompts
+        refreshPrompts()
+    }
+
+    fun refreshPrompts() {
         viewModelScope.launch {
             try {
                 val promptInfos = promptRepo.listPrompts()
-                _availablePrompts.value = promptInfos.map { it.name }.sorted()
+                val names = promptInfos.map { it.name }.sorted()
+                _availablePrompts.value = names
+                // If saved default no longer exists, reset to "default"
+                val saved = repo.getDefaultPromptSync()
+                if (saved !in names) {
+                    repo.setDefaultPrompt("default")
+                }
             } catch (e: Exception) {
                 _availablePrompts.value = listOf("default")
             }

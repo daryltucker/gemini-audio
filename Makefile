@@ -68,7 +68,7 @@ help:
 
 # ── Android ───────────────────────────────────────────────────────────────────
 
-ANDROID_SDK_HOME ?= $(HOME)/src/android-sdk-linux
+ANDROID_SDK_HOME ?= $(HOME)/.src/android-sdk-linux
 ANDROID_NDK_HOME ?= $(ANDROID_SDK_HOME)/ndk/27.2.12479018
 
 android-core:

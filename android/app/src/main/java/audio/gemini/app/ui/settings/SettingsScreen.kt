@@ -26,6 +26,10 @@ fun SettingsScreen(
 ) {
     val state by vm.uiState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        vm.refreshPrompts()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import uniffi.gemini_audio_core.listConversations
 import uniffi.gemini_audio_core.deleteConversation
+import uniffi.gemini_audio_core.loadConversation
 
 data class ConversationItem(
     val id: ULong,
@@ -31,6 +34,9 @@ class ConversationsViewModel(application: Application) : AndroidViewModel(applic
     private val _conversations = MutableStateFlow<List<ConversationItem>>(emptyList())
     private val _isLoading = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
+
+    private val _shareText = Channel<String>(Channel.BUFFERED)
+    val shareText = _shareText.receiveAsFlow()
 
     val uiState: StateFlow<ConversationsUiState> = combine(
         _conversations, _isLoading, _error
@@ -78,6 +84,34 @@ class ConversationsViewModel(application: Application) : AndroidViewModel(applic
                 loadConversations()  // Refresh list
             } catch (e: Exception) {
                 _error.value = "Failed to delete conversation: ${e.message}"
+            }
+        }
+    }
+
+    fun shareConversation(id: ULong, timestamp: String) {
+        viewModelScope.launch {
+            try {
+                val dataDir = context.filesDir.absolutePath
+                val turns = withContext(Dispatchers.IO) {
+                    loadConversation(dataDir, id)
+                }
+                val sb = StringBuilder()
+                sb.appendLine("Gemini Audio Conversation")
+                sb.appendLine(timestamp)
+                sb.appendLine()
+                turns.forEach { turn ->
+                    if (turn.userText.isNotBlank()) {
+                        sb.appendLine("You: ${turn.userText}")
+                    }
+                    if (turn.assistantText.isNotBlank()) {
+                        val label = if (turn.voice.isNotBlank()) "Gemini (${turn.voice})" else "Gemini"
+                        sb.appendLine("$label: ${turn.assistantText}")
+                    }
+                    sb.appendLine()
+                }
+                _shareText.send(sb.toString().trimEnd())
+            } catch (e: Exception) {
+                _error.value = "Failed to share conversation: ${e.message}"
             }
         }
     }

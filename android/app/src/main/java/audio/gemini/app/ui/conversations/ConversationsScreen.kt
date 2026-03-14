@@ -1,5 +1,6 @@
 package audio.gemini.app.ui.conversations
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,10 +9,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,7 +38,19 @@ fun ConversationsScreen(
     val state by vm.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<ULong?>(null) }
     var showMenu by remember { mutableStateOf(false) }
-    
+    val context = LocalContext.current
+
+    // Fire share sheet when ViewModel emits formatted text
+    LaunchedEffect(vm) {
+        vm.shareText.collect { text ->
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(intent, "Export conversation"))
+        }
+    }
+
     // Refresh conversations when screen becomes visible
     LaunchedEffect(Unit) {
         vm.loadConversations()
@@ -156,6 +172,7 @@ fun ConversationsScreen(
                             conversation = conversation,
                             onClick = { onConversationClick(conversation.id) },
                             onDelete = { showDeleteDialog = conversation.id },
+                            onShare = { vm.shareConversation(conversation.id, conversation.timestamp) },
                         )
                     }
                 }
@@ -193,19 +210,21 @@ private fun ConversationItem(
     conversation: ConversationItem,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onShare: () -> Unit,
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onClick),
+            ) {
                 Text(
                     text = formatTimestamp(conversation.timestamp),
                     style = MaterialTheme.typography.titleMedium,
@@ -222,6 +241,9 @@ private fun ConversationItem(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            IconButton(onClick = onShare) {
+                Icon(Icons.Filled.Share, contentDescription = "Share")
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete")

@@ -64,7 +64,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          VERSION_NAME=${GITHUB_REF#refs/tags/android-}
+          VERSION_NAME=${GITHUB_REF#refs/tags/android-v}
           ./gradlew assembleRelease \
             -PversionName=$VERSION_NAME \
             -PversionCode=$(echo $VERSION_NAME | sed 's/\.//g')

@@ -15,6 +15,9 @@ tasks.register<Exec>("generateKotlinBindings") {
     commandLine("bash", "/home/daryl/Projects/NRG/gemini-audio/android/app/scripts/generate-bindings.sh")
 }
 
+val versionNameProp = (project.findProperty("versionName") as String?) ?: "0.1.0"
+val versionCodeProp = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "audio.gemini.app"
     compileSdk = 35
@@ -23,8 +26,8 @@ android {
         applicationId = "audio.gemini.app"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = versionCodeProp
+        versionName = versionNameProp
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -34,6 +37,16 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            if (variant.buildType.name == "release") {
+                output.outputFileName = "gemini-audio-android-v${variant.versionName}.apk"
+            }
         }
     }
 

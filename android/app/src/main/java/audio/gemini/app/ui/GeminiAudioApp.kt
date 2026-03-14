@@ -82,6 +82,15 @@ fun GeminiAudioApp() {
                     }
                 )
             }
+            composable("conversation/{id}") { backStackEntry ->
+                val conversationId = backStackEntry.arguments?.getString("id")?.toULongOrNull() ?: 0UL
+                ActiveConversationScreen(
+                    conversationId = conversationId,
+                    selectedVoice = "Fenrir",
+                    selectedPrompt = "default",
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable("conversation/{id}/{voice}/{prompt}") { backStackEntry ->
                 val conversationId = backStackEntry.arguments?.getString("id")?.toULongOrNull() ?: 0UL
                 val voice = backStackEntry.arguments?.getString("voice") ?: "Fenrir"

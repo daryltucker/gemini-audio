@@ -529,65 +529,9 @@ async fn run_session_task(
             resp_result = client.receive_response() => {
                 match resp_result {
                     Ok(resp) => {
-                        // Handle audio
+                        // Handle audio — pass 24kHz PCM directly, no resampling needed
                         if let Ok(Some(audio)) = crate::client::GeminiClient::extract_audio_data(&resp) {
-                            // Resample 24kHz -> 16kHz for Oboe
-                            // audio is i16 PCM
-                            let input_rate = 24000u32;
-                            let output_rate = 16000u32;
-                            
-                            // Convert i16 bytes to f32 samples
-                            let samples_i16: Vec<i16> = audio.chunks_exact(2)
-                                .map(|c| i16::from_le_bytes([c[0], c[1]]))
-                                .collect();
-                            let samples_f32: Vec<f32> = samples_i16.iter().map(|&s| s as f32 / 32768.0).collect();
-                            
-                            let params = SincInterpolationParameters {
-                                sinc_len: 256,
-                                f_cutoff: 0.95,
-                                interpolation: SincInterpolationType::Linear,
-                                oversampling_factor: 128,
-                                window: WindowFunction::BlackmanHarris2,
-                            };
-                            let chunk_size: usize = 1024;
-                            let ratio = output_rate as f64 / input_rate as f64;
-                            
-                            let mut resampler = SincFixedIn::<f32>::new(ratio, 2.0, params, chunk_size, 1)
-                                .unwrap_or_else(|e| panic!("Resampler init failed: {}", e));
-                            
-                            let mut out_f32: Vec<f32> = Vec::new();
-                            let mut pos = 0;
-                            
-                            while pos < samples_f32.len() {
-                                let end = (pos + chunk_size).min(samples_f32.len());
-                                let actual_len = end - pos;
-                                let mut chunk = samples_f32[pos..end].to_vec();
-                                if chunk.len() < chunk_size {
-                                    chunk.resize(chunk_size, 0.0);
-                                }
-                                
-                                let out = resampler.process(&[chunk], None)
-                                    .unwrap_or_else(|e| panic!("Resample error: {}", e));
-                                
-                                if actual_len < chunk_size {
-                                    let expected = (actual_len as f64 * ratio).ceil() as usize;
-                                    out_f32.extend_from_slice(&out[0][..expected.min(out[0].len())]);
-                                } else {
-                                    out_f32.extend_from_slice(&out[0]);
-                                }
-                                
-                                pos += chunk_size;
-                            }
-                            
-                            // Convert f32 samples back to i16 bytes
-                            let output_bytes: Vec<u8> = out_f32.iter()
-                                .flat_map(|&s| {
-                                    let sample = (s * 32768.0).clamp(-32768.0, 32767.0) as i16;
-                                    sample.to_le_bytes().to_vec()
-                                })
-                                .collect();
-                                
-                            callback.on_audio_chunk(output_bytes);
+                            callback.on_audio_chunk(audio);
                         }
                         
                         // Handle transcripts

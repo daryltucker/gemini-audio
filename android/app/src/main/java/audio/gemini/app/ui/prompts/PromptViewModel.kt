@@ -26,6 +26,7 @@ data class PromptsUiState(
 class PromptViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = PromptRepository(application)
+    private val settings = audio.gemini.app.data.SettingsRepository(application)
 
     private val _prompts = MutableStateFlow<List<PromptItem>>(emptyList())
     private val _isLoading = MutableStateFlow(false)
@@ -114,6 +115,10 @@ class PromptViewModel(application: Application) : AndroidViewModel(application) 
                     loadPrompts()
                     if (_selectedPrompt.value == name) {
                         _selectedPrompt.value = null
+                    }
+                    // If this was the saved default, reset to "default"
+                    if (settings.getDefaultPromptSync() == name) {
+                        settings.setDefaultPrompt("default")
                     }
                 } else {
                     _error.value = "Failed to delete prompt"
